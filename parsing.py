@@ -7,16 +7,17 @@ from bs4 import BeautifulSoup as BS
 from mysql.connector import errorcode
 from selenium import webdriver
 
-filename = "info"
 host = "https://olimpiada.ru"
-# math_url = "https://olimpiada.ru/activities?type=ind&subject%5B6%5D=on&class=11&period_date=&period=year"
-# info_url = "https://olimpiada.ru/activities?type=ind&subject%5B7%5D=on&class=11&period_date=&period=year"
-url = "https://olimpiada.ru/activities?type=ind&subject%5B7%5D=on&class=11&period_date=&period=year"
 HEADERS = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36 OPR/70.0.3728.95",
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
 }
-
+olimps = {
+    'math': ["https://olimpiada.ru/activities?type=ind&subject%5B6%5D=on&class=11&period_date=&period=year", 'math'],
+    'inform': ["https://olimpiada.ru/activities?type=ind&subject%5B7%5D=on&class=11&period_date=&period=year", 'info'],
+    'biol': ["https://olimpiada.ru/activities?type=ind&subject%5B11%5D=on&class=11&period_date=&period=year", 'biol'],
+    'chim': ["https://olimpiada.ru/activities?type=ind&subject%5B13%5D=on&class=11&period_date=&period=year", 'chim']
+}
 # Connecting to a database
 try:
     db = mysql.connector.connect(
@@ -40,11 +41,17 @@ except mysql.connector.Error as err:
 cursor = db.cursor()
 
 
-def add(items):
+def add(items, name):
+    zap = f"""DELETE FROM {name};"""
+    zip = f"""ALTER TABLE {name} AUTO_INCREMENT = 0"""
+    cursor.execute(zap)
+    db.commit()
+    cursor.execute(zip)
+    db.commit()
     for item in items:
         try:
-            sql = """INSERT INTO `info`(`title`, `description`, `link`, `rating`) VALUES (%s,%s,%s,%s)"""
-            val = item["title"], item["desk"], host+item["link"], item["rating"].replace(",", ".")
+            sql = f"""INSERT INTO `{name}`(`title`, `description`, `link`, `rating`) VALUES (%s,%s,%s,%s)"""
+            val = item["title"], item["desk"], host + item["link"], item["rating"].replace(",", ".")
             cursor.execute(sql, val)
             db.commit()
         except IntegrityError:
@@ -58,7 +65,7 @@ def get_html(url):
     driver = webdriver.Chrome(executable_path="C:\webdrivers\operadriver.exe")
     driver.get(url)
     # driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    SCROLL_PAUSE_TIME = 2
+    SCROLL_PAUSE_TIME = 2.5
 
     # Get scroll height
     last_height = driver.execute_script("return document.body.scrollHeight")
@@ -115,8 +122,9 @@ def get_content(html):
 
 
 def main():
-    all_content = get_content(get_html(url))
-    add(all_content)
+    for key, val in olimps.items():
+        all_content = get_content(get_html(val[0]))
+        add(all_content, name=val[1])
 
 
 if __name__ == '__main__':
